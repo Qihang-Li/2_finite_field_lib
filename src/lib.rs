@@ -30,16 +30,16 @@ mod tests {
         assert_eq!(result.num, BigUint::from(3u64));
     }
 
-    #[test] // Galois::new(14， 7) = 0
-    fn construction_check_multiple() {
-        let result = Galois::new(BigUint::from(14u64), BigUint::from(7u64));
-        assert_eq!(result.num, BigUint::ZERO);
+    #[test] // Galois::new(9, 7) = 2
+    fn construction_check_modulus() {
+        let result = Galois::new(BigUint::from(9u64), BigUint::from(7u64));
+        assert_eq!(result.num, BigUint::from(2u64));
     }
 
-    #[test] // Galois::new(13, 11) = 2
-    fn construction_check_modulus() {
-        let result = Galois::new(BigUint::from(13u64), BigUint::from(11u64));
-        assert_eq!(result.num, BigUint::from(2u64));
+    #[test] // Galois::new(22，11) = 0
+    fn construction_check_multiple() {
+        let result = Galois::new(BigUint::from(22u64), BigUint::from(11u64));
+        assert_eq!(result.num, BigUint::ZERO);
     }
 
     #[test] // 553059516537161321408265876841 is a verified prime.
