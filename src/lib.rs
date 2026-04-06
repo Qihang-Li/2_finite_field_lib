@@ -7,17 +7,65 @@ pub struct Galois {
 }
 
 impl Galois {
-    pub fn new(num: BigUint, prime: BigUint) -> Self {
+    pub fn new(mut num: BigUint, prime: BigUint) -> Self {
+        num %= &prime;
         Self {
-            num: num % &prime,
+            num: num,
             prime: prime,
         }
+    }
+}
+
+impl std::ops::Add for Galois {
+    type Output = Self;
+
+    fn add(mut self, rhs: Self) -> Self::Output {
+        // Validate the operation
+        if self.prime != rhs.prime {
+            panic!("You are adding elements of different primes.");
+        }
+
+        // 1. Add rhs directly into self's existing memory buffer
+        self.num += rhs.num;
+
+        // 2. Do the conditional check
+        if self.num >= self.prime {
+            self.num -= &self.prime;
+        }
+
+        // 3. Return the recycled struct! No new allocations!
+        self
+    }
+}
+
+impl std::ops::Sub for Galois {
+    type Output = Self;
+
+    fn sub(mut self, rhs: Self) -> Self::Output {
+        // Validate the operation
+        if self.prime != rhs.prime {
+            panic!("You are subtracting elements of different primes.");
+        }
+
+        if self.num >= rhs.num {
+            self.num -= rhs.num;
+        } else {
+            self.num += &self.prime;
+            self.num -= rhs.num;
+        }
+
+        self
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // --------------------Part I--------------------
+    // State and Boundary Initialization
+    // Define the struct and the constructor
+    // ----------------------------------------------
 
     #[test] // Galois::new(0, 3) = 0
     fn construction_check_zero() {
@@ -66,7 +114,12 @@ mod tests {
         );
     }
 
-    #[test] // Galois::new(3, 17)  == Galois::new(3, 17)
+    // --------------------Part II-------------------
+    // Equivalence and Formatting
+    // Implementing PartialEq, Eq, and Debug.
+    // ----------------------------------------------
+
+    #[test] // Galois::new(3, 17) == Galois::new(3, 17)
     fn eq_check_basic() {
         assert_eq!(
             Galois::new(BigUint::from(3u64), BigUint::from(17u64)),
@@ -133,5 +186,76 @@ mod tests {
         let two_in_F41 = Galois::new(BigUint::from(2u64), BigUint::from(41u64));
         let two_in_F41_cloned = two_in_F41.clone();
         assert_eq!(two_in_F41, two_in_F41_cloned);
+    }
+
+    // -------------------Part III-------------------
+    // Linear Arithmetic
+    // Overloading std::ops::Add and std::ops::Sub.
+    // ----------------------------------------------
+
+    #[test]
+    #[should_panic] // We don't want add 2 elements with different primes
+    #[allow(non_snake_case)]
+    fn add_check_prime() {
+        let one_in_F47 = Galois::new(BigUint::from(1u64), BigUint::from(47u64));
+        let two_in_F53 = Galois::new(BigUint::from(2u64), BigUint::from(53u64));
+        let _result = one_in_F47 + two_in_F53;
+    }
+
+    #[test] // Galois::new(1, 59) + Galois::new(2, 59) == Galois::new(3, 59)
+    #[allow(non_snake_case)]
+    fn add_check_basic() {
+        let one_in_F59 = Galois::new(BigUint::from(1u64), BigUint::from(59u64));
+        let two_in_F59 = Galois::new(BigUint::from(2u64), BigUint::from(59u64));
+        let result = one_in_F59 + two_in_F59;
+        assert_eq!(
+            result,
+            Galois::new(BigUint::from(3u64), BigUint::from(59u64))
+        );
+    }
+
+    #[test] // Galois::new(60, 61) + Galois::new(2, 61) == Galois::new(1, 61)
+    #[allow(non_snake_case)]
+    fn add_check_overload() {
+        let sixty_in_F61 = Galois::new(BigUint::from(60u64), BigUint::from(61u64));
+        let two_in_F61 = Galois::new(BigUint::from(2u64), BigUint::from(61u64));
+        let result = sixty_in_F61 + two_in_F61;
+        assert_eq!(
+            result,
+            Galois::new(BigUint::from(1u64), BigUint::from(61u64))
+        );
+    }
+
+    #[test]
+    #[should_panic] // We don't want subtract 2 elements with different primes
+    #[allow(non_snake_case)]
+    fn sub_check_prime() {
+        let one_in_F67 = Galois::new(BigUint::from(1u64), BigUint::from(67u64));
+        let two_in_F71 = Galois::new(BigUint::from(2u64), BigUint::from(71u64));
+        let _result = one_in_F67 - two_in_F71;
+    }
+
+    #[test] // Galois::new(70, 73) - Galois::new(2, 73) == Galois::new(68, 73)
+    #[allow(non_snake_case)]
+    fn sub_check_basic() {
+        let seventy_in_F73 = Galois::new(BigUint::from(70u64), BigUint::from(73u64));
+        let two_in_F73 = Galois::new(BigUint::from(2u64), BigUint::from(73u64));
+        let result = seventy_in_F73 - two_in_F73;
+        assert_eq!(
+            result,
+            Galois::new(BigUint::from(68u64), BigUint::from(73u64))
+        );
+    }
+
+    #[test] // Galois::new(1, 79) - Galois::new(2, 79) == Galois::new(78, 79)
+    #[allow(non_snake_case)]
+    fn sub_check_overload() {
+        let one_in_F79 = Galois::new(BigUint::from(1u64), BigUint::from(79u64));
+        let two_in_F79 = Galois::new(BigUint::from(2u64), BigUint::from(79u64));
+        let result = one_in_F79 - two_in_F79;
+        assert_eq!(
+            result,
+            Galois::new(BigUint::from(78u64), BigUint::from(79u64))
+        );
     }
 }
