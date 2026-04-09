@@ -77,6 +77,60 @@ impl std::ops::Mul for Galois {
     }
 }
 
+impl std::ops::Div for Galois {
+    type Output = Self;
+
+    fn div(mut self, rhs: Self) -> Self::Output {
+        // Validate the operation
+        if self.prime != rhs.prime {
+            panic!("You are dividing elements of different primes.");
+        }
+        // Validate the denominator
+        if rhs.num == BigUint::ZERO {
+            panic!("You are dividing by 0.");
+        }
+
+        // 1. Compute b^(p-2) (mod p)
+        // using the Modular Exponentiation algorithm
+        /*
+        let mut denominator = BigUint::from(1u64);
+        let mut base = rhs.num;
+        let mut exp = &self.prime - 2u64;
+
+        while exp > BigUint::ZERO {
+            // It's same with exp.is_odd(), but without dependency.
+            if exp.bit(0) {
+                denominator *= &base;
+                denominator %= &self.prime;
+            }
+
+            // (1). Shift first
+            exp >>= 1;
+
+            // (2). The Micro-Optimization: Exit immediately if no bits remain.
+            if exp == BigUint::ZERO {
+                break;
+            }
+
+            // (3). Square only if there are still bits left to process.
+            base = &base * &base;
+            base %= &self.prime;
+        }
+        */
+
+        // Yet we prefer the official tool modpow() for BigUint
+        let exp = &self.prime - 2u64;
+        let denominator = &rhs.num.modpow(&exp, &self.prime);
+
+        // 2. Compute a * b^(p-2) (mod p)
+        self.num *= denominator;
+        self.num %= &self.prime;
+
+        // 3. return value
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -88,7 +142,7 @@ mod tests {
 
     #[test] // Galois::new(0, 3) = 0
     fn construction_check_zero() {
-        let result = Galois::new(BigUint::from(0u64), BigUint::from(3u64));
+        let result = Galois::new(BigUint::ZERO, BigUint::from(3u64));
         assert_eq!(result.num, BigUint::ZERO);
     }
 
@@ -133,8 +187,8 @@ mod tests {
     #[test] // Galois::new(0, 13) == Galois::new(0, 13)
     fn eq_check_zero() {
         assert_eq!(
-            Galois::new(BigUint::from(0u64), BigUint::from(13u64)),
-            Galois::new(BigUint::from(0u64), BigUint::from(13u64))
+            Galois::new(BigUint::ZERO, BigUint::from(13u64)),
+            Galois::new(BigUint::ZERO, BigUint::from(13u64))
         );
     }
 
@@ -179,7 +233,7 @@ mod tests {
     #[test] // Galois::new(0, 29) != Galois::new(1, 29)
     fn eq_check_unequal_num() {
         assert_ne!(
-            Galois::new(BigUint::from(0u64), BigUint::from(29u64)),
+            Galois::new(BigUint::ZERO, BigUint::from(29u64)),
             Galois::new(BigUint::from(1u64), BigUint::from(29u64))
         );
     }
@@ -187,8 +241,8 @@ mod tests {
     #[test] // Galois::new(0, 31) != Galois::new(0, 37)
     fn eq_check_unequal_prime() {
         assert_ne!(
-            Galois::new(BigUint::from(0u64), BigUint::from(31u64)),
-            Galois::new(BigUint::from(0u64), BigUint::from(37u64))
+            Galois::new(BigUint::ZERO, BigUint::from(31u64)),
+            Galois::new(BigUint::ZERO, BigUint::from(37u64))
         );
     }
 
@@ -209,7 +263,7 @@ mod tests {
 
     // -------------------Part III-------------------
     // Linear Arithmetic
-    // Overloading std::ops::Add and std::ops::Sub.
+    // overloading std::ops::Add and std::ops::Sub.
     // ----------------------------------------------
 
     #[test]
@@ -250,7 +304,7 @@ mod tests {
 
     #[test] // Galois::new(60, 61) + Galois::new(2, 61) == Galois::new(1, 61)
     #[allow(non_snake_case)]
-    fn add_check_overload() {
+    fn add_check_overflow() {
         let sixty_in_F61 = Galois::new(BigUint::from(60u64), BigUint::from(61u64));
         let two_in_F61 = Galois::new(BigUint::from(2u64), BigUint::from(61u64));
         let result = sixty_in_F61 + two_in_F61;
@@ -298,7 +352,7 @@ mod tests {
 
     #[test] // Galois::new(1, 79) - Galois::new(2, 79) == Galois::new(78, 79)
     #[allow(non_snake_case)]
-    fn sub_check_overload() {
+    fn sub_check_underflow() {
         let one_in_F79 = Galois::new(BigUint::from(1u64), BigUint::from(79u64));
         let two_in_F79 = Galois::new(BigUint::from(2u64), BigUint::from(79u64));
         let result = one_in_F79 - two_in_F79;
@@ -310,7 +364,7 @@ mod tests {
 
     // -------------------Part IV--------------------
     // Non-Linear Arithmetic
-    // Overloading std::ops::Mul
+    // overloading std::ops::Mul
     // ----------------------------------------------
 
     #[test]
@@ -337,7 +391,7 @@ mod tests {
         assert_eq!(result, big_zero);
     }
 
-    #[test] // Galois::new(big_num, big_prime) + Galois::new(0, big_prime) == Galois::new(big_num, big_prime)
+    #[test] // Galois::new(big_num, big_prime) * Galois::new(0, big_prime) == Galois::new(big_num, big_prime)
     #[allow(non_snake_case)]
     fn mul_check_unit() {
         let big_num = Galois::new(
@@ -366,13 +420,81 @@ mod tests {
 
     #[test] // Galois::new(60, 101) * Galois::new(2, 101) == Galois::new(19, 101)
     #[allow(non_snake_case)]
-    fn mul_check_overload() {
+    fn mul_check_overflow() {
         let sixty_in_F101 = Galois::new(BigUint::from(60u64), BigUint::from(101u64));
         let two_in_F101 = Galois::new(BigUint::from(2u64), BigUint::from(101u64));
         let result = sixty_in_F101 * two_in_F101;
         assert_eq!(
             result,
             Galois::new(BigUint::from(19u64), BigUint::from(101u64))
+        );
+    }
+
+    // -------------------Part V---------------------
+    // Inversion and Division
+    // overloading std::ops::Div
+    // ----------------------------------------------
+
+    #[test]
+    #[should_panic] // We don't want divide 2 elements with different primes
+    #[allow(non_snake_case)]
+    fn div_check_prime() {
+        let one_in_F103 = Galois::new(BigUint::from(1u64), BigUint::from(103u64));
+        let two_in_F107 = Galois::new(BigUint::from(2u64), BigUint::from(107u64));
+        let _result = one_in_F103 / two_in_F107;
+    }
+
+    #[test]
+    #[should_panic] // We don't want divide by zero.
+    #[allow(non_snake_case)]
+    fn div_check_zero() {
+        let big_num = Galois::new(
+            "553059516537161321408265876835".parse::<BigUint>().unwrap(),
+            "553059516537161321408265876841".parse::<BigUint>().unwrap(),
+        );
+        let big_zero = Galois::new(
+            BigUint::ZERO,
+            "553059516537161321408265876841".parse::<BigUint>().unwrap(),
+        );
+        let _result = big_num / big_zero;
+    }
+
+    #[test] // Galois::new(big_num, big_prime) / Galois::new(1, big_prime) == Galois::new(big_num, big_prime)
+    #[allow(non_snake_case)]
+    fn div_check_unit() {
+        let big_num = Galois::new(
+            "553059516537161321408265876834".parse::<BigUint>().unwrap(),
+            "553059516537161321408265876841".parse::<BigUint>().unwrap(),
+        );
+        let big_one = Galois::new(
+            BigUint::from(1u64),
+            "553059516537161321408265876841".parse::<BigUint>().unwrap(),
+        );
+        let result = big_num.clone() / big_one;
+        assert_eq!(result, big_num);
+    }
+
+    #[test] // Galois::new(6, 109) / Galois::new(2, 109) == Galois::new(3, 109)
+    #[allow(non_snake_case)]
+    fn div_check_basic() {
+        let six_in_F109 = Galois::new(BigUint::from(6u64), BigUint::from(109u64));
+        let two_in_F109 = Galois::new(BigUint::from(2u64), BigUint::from(109u64));
+        let result = six_in_F109 / two_in_F109;
+        assert_eq!(
+            result,
+            Galois::new(BigUint::from(3u64), BigUint::from(109u64))
+        );
+    }
+
+    #[test] // Galois::new(1, 113) / Galois::new(2, 113) == Galois::new(57, 113)
+    #[allow(non_snake_case)]
+    fn div_check_overflow() {
+        let one_in_F113 = Galois::new(BigUint::from(1u64), BigUint::from(113u64));
+        let two_in_F113 = Galois::new(BigUint::from(2u64), BigUint::from(113u64));
+        let result = one_in_F113 / two_in_F113;
+        assert_eq!(
+            result,
+            Galois::new(BigUint::from(57u64), BigUint::from(113u64))
         );
     }
 }
